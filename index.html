@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shape Memory</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --card: #1a1f35;
+      --text: #e8eaf0;
+      --muted: #8b92a8;
+      --accent: #5b8def;
+      --green: #3ecf8e;
+      --red: #ef5b6b;
+      --bar-bg: #2a3148;
+      --shape-size: 88px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      user-select: none;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 28px;
+      text-align: center;
+      max-width: 420px;
+      line-height: 1.4;
+    }
+
+    .game-shell {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px 24px 32px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Timer */
+    .timer-wrap {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .timer-wrap.visible {
+      display: flex;
+    }
+
+    .timer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .timer-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .timer-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      transition: color 0.2s;
+    }
+
+    .timer-value.urgent {
+      color: var(--red);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--bar-bg);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.2s linear, background 0.2s;
+      transform-origin: left;
+    }
+
+    .progress-bar.urgent {
+      background: var(--red);
+    }
+
+    /* Score / phase indicator */
+    .status-row {
+      width: 100%;
+      display: none;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .status-row.visible {
+      display: flex;
+    }
+
+    /* Main stage */
+    .stage {
+      width: 100%;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .message {
+      font-size: 1.25rem;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.35;
+    }
+
+    .message.small {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    /* Shape display */
+    .shape-area {
+      width: var(--shape-size);
+      height: var(--shape-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .shape {
+      width: var(--shape-size);
+      height: var(--shape-size);
+      display: none;
+    }
+
+    .shape.show {
+      display: block;
+    }
+
+    /* SVG shapes */
+    .shape svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Sequence reveal (after answers) */
+    .sequence-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .seq-item {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .seq-item svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Questions */
+    .questions {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .questions.visible {
+      display: flex;
+    }
+
+    .q-pair {
+      display: flex;
+      gap: 12px;
+    }
+
+    .q-card {
+      flex: 1;
+      background: #222842;
+      border-radius: 12px;
+      padding: 14px 12px;
+      text-align: center;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .q-card.active {
+      border-color: var(--accent);
+      background: #263050;
+    }
+
+    .q-card.correct {
+      border-color: var(--green);
+      background: rgba(62, 207, 142, 0.12);
+    }
+
+    .q-card.wrong {
+      border-color: var(--red);
+      background: rgba(239, 91, 107, 0.12);
+    }
+
+    .q-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .q-text {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .q-answer {
+      margin-top: 8px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .q-answer svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    /* Answer buttons */
+    .answer-buttons {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      width: 100%;
+    }
+
+    .answer-buttons.visible {
+      display: grid;
+    }
+
+    .ans-btn {
+      background: #222842;
+      border: 2px solid #333a55;
+      border-radius: 12px;
+      padding: 12px 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .ans-btn:hover:not(:disabled) {
+      background: #2c3452;
+      border-color: var(--accent);
+    }
+
+    .ans-btn:active:not(:disabled) {
+      transform: scale(0.96);
+    }
+
+    .ans-btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .ans-btn svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    /* Buttons (primary) */
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, opacity 0.15s;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn:hover {
+      background: #4a7de0;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .btn.secondary {
+      background: #2a3148;
+      color: var(--text);
+    }
+
+    .btn.secondary:hover {
+      background: #353e5a;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* Results */
+    .results {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+      width: 100%;
+    }
+
+    .results.visible {
+      display: flex;
+    }
+
+    .results h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .results .stat {
+      font-size: 1.05rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .results .stat strong {
+      color: var(--text);
+    }
+
+    /* Hidden utility */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shape Memory</h1>
+  <p class="subtitle">Watch the sequence, then answer questions about the order. Beat the 60-second clock.</p>
+
+  <div class="game-shell">
+    <!-- Timer -->
+    <div class="timer-wrap" id="timerWrap">
+      <div class="timer-row">
+        <span class="timer-label">Time</span>
+        <span class="timer-value" id="timerValue">60</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-row" id="statusRow">
+      <span id="phaseLabel">Phase 1</span>
+      <span id="scoreLabel">Score: 0 / 4</span>
+    </div>
+
+    <!-- Stage -->
+    <div class="stage" id="stage">
+      <div class="message" id="mainMessage">Ready to test your short-term memory?</div>
+      <div class="shape-area" id="shapeArea">
+        <!-- shapes injected by JS -->
+      </div>
+      <div class="sequence-row hidden" id="sequenceRow"></div>
+    </div>
+
+    <!-- Questions -->
+    <div class="questions" id="questions">
+      <div class="q-pair">
+        <div class="q-card" id="q1Card">
+          <div class="q-label">Question 1</div>
+          <div class="q-text" id="q1Text">Shape ?</div>
+          <div class="q-answer" id="q1Answer"></div>
+        </div>
+        <div class="q-card" id="q2Card">
+          <div class="q-label">Question 2</div>
+          <div class="q-text" id="q2Text">Shape ?</div>
+          <div class="q-answer" id="q2Answer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Answer buttons -->
+    <div class="answer-buttons" id="answerButtons">
+      <button class="ans-btn" data-shape="hollow" title="Hollow circle"></button>
+      <button class="ans-btn" data-shape="solid" title="Solid circle"></button>
+      <button class="ans-btn" data-shape="diamond" title="Diamond"></button>
+      <button class="ans-btn" data-shape="square" title="Square"></button>
+    </div>
+
+    <!-- Results panel -->
+    <div class="results" id="results">
+      <h2 id="resultTitle"></h2>
+      <p class="stat" id="resultStats"></p>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="btn-row" id="btnRow">
+      <button class="btn" id="startBtn">Start game</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Shape SVGs ──────────────────────────────────────────────
+    const SHAPE_SVGS = {
+      hollow: `<svg viewBox="0 0 100 100" fill="none">
+        <circle cx="50" cy="50" r="38" stroke="#e8eaf0" stroke-width="8"/>
+      </svg>`,
+      solid: `<svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="38" fill="#e8eaf0"/>
+      </svg>`,
+      diamond: `<svg viewBox="0 0 100 100">
+        <polygon points="50,10 90,50 50,90 10,50" fill="#e8eaf0"/>
+      </svg>`,
+      square: `<svg viewBox="0 0 100 100">
+        <rect x="18" y="18" width="64" height="64" rx="6" fill="#e8eaf0"/>
+      </svg>`
+    };
+
+    const SHAPE_NAMES = {
+      hollow: "Hollow circle",
+      solid: "Solid circle",
+      diamond: "Diamond",
+      square: "Square"
+    };
+
+    const SHAPES = ["hollow", "solid", "diamond", "square"];
+
+    // ── DOM refs ────────────────────────────────────────────────
+    const timerWrap = document.getElementById("timerWrap");
+    const timerValue = document.getElementById("timerValue");
+    const progressBar = document.getElementById("progressBar");
+    const statusRow = document.getElementById("statusRow");
+    const phaseLabel = document.getElementById("phaseLabel");
+    const scoreLabel = document.getElementById("scoreLabel");
+    const stage = document.getElementById("stage");
+    const mainMessage = document.getElementById("mainMessage");
+    const shapeArea = document.getElementById("shapeArea");
+    const sequenceRow = document.getElementById("sequenceRow");
+    const questionsEl = document.getElementById("questions");
+    const q1Card = document.getElementById("q1Card");
+    const q2Card = document.getElementById("q2Card");
+    const q1Text = document.getElementById("q1Text");
+    const q2Text = document.getElementById("q2Text");
+    const q1Answer = document.getElementById("q1Answer");
+    const q2Answer = document.getElementById("q2Answer");
+    const answerButtons = document.getElementById("answerButtons");
+    const resultsEl = document.getElementById("results");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultStats = document.getElementById("resultStats");
+    const btnRow = document.getElementById("btnRow");
+    const startBtn = document.getElementById("startBtn");
+
+    // Populate answer buttons with SVGs
+    document.querySelectorAll(".ans-btn").forEach(btn => {
+      btn.innerHTML = SHAPE_SVGS[btn.dataset.shape];
+    });
+
+    // ── Game state ──────────────────────────────────────────────
+    let timer = null;
+    let timeLeft = 60;
+    const TOTAL_TIME = 60;
+    let phase = 1;               // 1 or 2
+    let sequence = [];          // current shapes
+    let qPositions = [];        // [pos1, pos2] 0-based
+    let currentQ = 0;           // 0 = Q1, 1 = Q2
+    let answers = [null, null]; // player's answers
+    let correctCount = 0;       // total correct across both phases (final run)
+    let phaseCorrect = [0, 0];  // correct in current phase for this attempt
+    let gameActive = false;
+    let awaitingAnswer = false;
+    let timeouts = [];
+
+    function clearTimeouts() {
+      timeouts.forEach(t => clearTimeout(t));
+      timeouts = [];
+    }
+
+    function schedule(fn, ms) {
+      const id = setTimeout(fn, ms);
+      timeouts.push(id);
+      return id;
+    }
+
+    // ── Timer ───────────────────────────────────────────────────
+    function startTimer() {
+      timeLeft = TOTAL_TIME;
+      updateTimerUI();
+      timerWrap.classList.add("visible");
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        timeLeft -= 0.05; // smooth-ish
+        if (timeLeft <= 0) {
+          timeLeft = 0;
+          updateTimerUI();
+          clearInterval(timer);
+          timer = null;
+          endGame(false);
+        } else {
+          updateTimerUI();
+        }
+      }, 50);
+    }
+
+    function updateTimerUI() {
+      const display = Math.ceil(timeLeft);
+      timerValue.textContent = display;
+      const pct = (timeLeft / TOTAL_TIME) * 100;
+      progressBar.style.width = pct + "%";
+      const urgent = timeLeft <= 10;
+      timerValue.classList.toggle("urgent", urgent);
+      progressBar.classList.toggle("urgent", urgent);
+    }
+
+    function stopTimer() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────
+    function showMessage(text, small = false) {
+      mainMessage.textContent = text;
+      mainMessage.classList.toggle("small", small);
+      mainMessage.classList.remove("hidden");
+      shapeArea.innerHTML = "";
+      sequenceRow.classList.add("hidden");
+      sequenceRow.innerHTML = "";
+    }
+
+    function showShape(shapeKey) {
+      mainMessage.classList.add("hidden");
+      shapeArea.innerHTML = `<div class="shape show">${SHAPE_SVGS[shapeKey]}</div>`;
+      sequenceRow.classList.add("hidden");
+    }
+
+    function clearShape() {
+      shapeArea.innerHTML = "";
+    }
+
+    function showSequence(seq) {
+      mainMessage.classList.add("hidden");
+      shapeArea.innerHTML = "";
+      sequenceRow.innerHTML = seq.map(s =>
+        `<div class="seq-item">${SHAPE_SVGS[s]}</div>`
+      ).join("");
+      sequenceRow.classList.remove("hidden");
+    }
+
+    function hideQuestions() {
+      questionsEl.classList.remove("visible");
+      answerButtons.classList.remove("visible");
+      q1Card.className = "q-card";
+      q2Card.className = "q-card";
+      q1Answer.innerHTML = "";
+      q2Answer.innerHTML = "";
+    }
+
+    function showQuestions() {
+      questionsEl.classList.add("visible");
+      answerButtons.classList.add("visible");
+      q1Text.textContent = `Shape ${qPositions[0] + 1}?`;
+      q2Text.textContent = `Shape ${qPositions[1] + 1}?`;
+      q1Card.classList.add("active");
+      q2Card.classList.remove("active");
+      currentQ = 0;
+      answers = [null, null];
+      awaitingAnswer = true;
+      enableAnswerButtons(true);
+    }
+
+    function enableAnswerButtons(on) {
+      document.querySelectorAll(".ans-btn").forEach(b => {
+        b.disabled = !on;
+      });
+    }
+
+    function updateScoreUI() {
+      scoreLabel.textContent = `Score: ${correctCount} / 4`;
+      phaseLabel.textContent = `Phase ${phase}`;
+    }
+
+    function setButtons(html) {
+      btnRow.innerHTML = html;
+    }
+
+    // ── Core game flow ──────────────────────────────────────────
+    function startGame() {
+      clearTimeouts();
+      stopTimer();
+      gameActive = true;
+      phase = 1;
+      correctCount = 0;
+      phaseCorrect = [0, 0];
+      answers = [null, null];
+      awaitingAnswer = false;
+
+      hideQuestions();
+      resultsEl.classList.remove("visible");
+      statusRow.classList.add("visible");
+      updateScoreUI();
+      setButtons("");
+
+      startTimer();
+      beginPhase();
+    }
+
+    function beginPhase() {
+      clearTimeouts();
+      hideQuestions();
+      sequenceRow.classList.add("hidden");
+      const count = phase === 1 ? 4 : 5;
+      sequence = [];
+      for (let i = 0; i < count; i++) {
+        sequence.push(SHAPES[Math.floor(Math.random() * SHAPES.length)]);
+      }
+
+      // Pick two distinct positions
+      const positions = [...Array(count).keys()];
+      // shuffle
+      for (let i = positions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+      }
+      qPositions = positions.slice(0, 2).sort((a, b) => a - b);
+
+      showMessage("Get ready…");
+      schedule(() => playSequence(), 900);
+    }
+
+    function playSequence() {
+      let i = 0;
+      function next() {
+        if (!gameActive) return;
+        if (i >= sequence.length) {
+          // finished showing
+          schedule(() => {
+            showMessage("What was the order?", true);
+            schedule(() => showQuestions(), 600);
+          }, 300);
+          return;
+        }
+        showShape(sequence[i]);
+        i++;
+        schedule(() => {
+          clearShape();
+          schedule(next, 280); // blank gap
+        }, 1000);
+      }
+      next();
+    }
+
+    // Answer handling
+    answerButtons.addEventListener("click", e => {
+      const btn = e.target.closest(".ans-btn");
+      if (!btn || !awaitingAnswer || btn.disabled) return;
+      const shape = btn.dataset.shape;
+      handleAnswer(shape);
+    });
+
+    function handleAnswer(shape) {
+      if (!awaitingAnswer) return;
+      answers[currentQ] = shape;
+
+      const card = currentQ === 0 ? q1Card : q2Card;
+      const ansEl = currentQ === 0 ? q1Answer : q2Answer;
+      ansEl.innerHTML = SHAPE_SVGS[shape];
+
+      const correct = shape === sequence[qPositions[currentQ]];
+      card.classList.remove("active");
+      card.classList.add(correct ? "correct" : "wrong");
+
+      if (correct) {
+        correctCount++;
+        phaseCorrect[phase - 1]++;
+      }
+      updateScoreUI();
+
+      if (currentQ === 0) {
+        // After Q1
+        if (!correct) {
+          // Wrong Q1 → show correct order, then restart current phase
+          awaitingAnswer = false;
+          enableAnswerButtons(false);
+          schedule(() => {
+            showMessage("Correct order:", true);
+            showSequence(sequence);
+            schedule(() => {
+              // Restart current phase only (not always Phase 1)
+              // Drop this phase's correct answers from the score
+              correctCount -= phaseCorrect[phase - 1];
+              phaseCorrect[phase - 1] = 0;
+              updateScoreUI();
+              beginPhase();
+            }, 2000);
+          }, 600);
+          return;
+        }
+        // Q1 correct → move to Q2
+        currentQ = 1;
+        q2Card.classList.add("active");
+      } else {
+        // After Q2
+        awaitingAnswer = false;
+        enableAnswerButtons(false);
+
+        schedule(() => {
+          showMessage("Correct order:", true);
+          showSequence(sequence);
+          schedule(() => {
+            if (phase === 1) {
+              phase = 2;
+              updateScoreUI();
+              beginPhase();
+            } else {
+              // Phase 2 finished → show "See results" button
+              setButtons(`<button class="btn" id="seeResultsBtn">See results</button>`);
+              document.getElementById("seeResultsBtn").addEventListener("click", () => {
+                endGame(true);
+              });
+            }
+          }, 2000);
+        }, 500);
+      }
+    }
+
+    function endGame(won) {
+      gameActive = false;
+      awaitingAnswer = false;
+      clearTimeouts();
+      stopTimer();
+      hideQuestions();
+      sequenceRow.classList.add("hidden");
+      shapeArea.innerHTML = "";
+      mainMessage.classList.add("hidden");
+
+      resultsEl.classList.add("visible");
+      statusRow.classList.remove("visible");
+
+      if (won) {
+        resultTitle.textContent = "You win!";
+        resultTitle.style.color = "var(--green)";
+        const secs = Math.ceil(timeLeft);
+        resultStats.innerHTML =
+          `You finished with <strong>${secs}</strong> second${secs === 1 ? "" : "s"} left.<br>` +
+          `You answered <strong>${correctCount}</strong> of 4 questions correctly in your final run.`;
+      } else {
+        resultTitle.textContent = "Time's up!";
+        resultTitle.style.color = "var(--red)";
+        resultStats.innerHTML =
+          `The clock ran out before you finished both phases.<br>` +
+          `Correct answers in your last attempt: <strong>${correctCount}</strong> of 4.`;
+      }
+
+      setButtons(`<button class="btn" id="playAgainBtn">Play again</button>`);
+      document.getElementById("playAgainBtn").addEventListener("click", () => {
+        resultsEl.classList.remove("visible");
+        startGame();
+      });
+    }
+
+    // Initial button
+    startBtn.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
